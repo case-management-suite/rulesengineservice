@@ -1,0 +1,26 @@
+rule StartCase "Start a new case" salience 10 {
+    when 
+        CaseContext.CaseRecord.Status == "NEW_CASE" && CaseContext.Action == "START"
+    then
+        CaseContext.CaseRecord.Status = "STARTED";
+        Retract("StartCase");
+}
+
+
+rule CompleteCase "Close a case" salience 10 {
+    when 
+        CaseContext.Action == "CLOSE"
+    then
+        CaseContext.CaseRecord.Status = "CLOSED";
+        Retract("CompleteCase");
+}
+
+
+rule MoveToEvaluation "Move a case to evaluation" salience 10 {
+    when 
+        CaseContext.Action == "MOVE_TO_EVALUATION"
+    then
+        CaseContext.CaseRecord.Status = "IN_EVALUATION";
+        Retract("MoveToEvaluation");
+}
+
