@@ -5,6 +5,7 @@ import (
 
 	"github.com/case-management-suite/common/config"
 	"github.com/case-management-suite/common/metrics"
+	"github.com/case-management-suite/common/server"
 	"github.com/case-management-suite/queue"
 	"github.com/case-management-suite/scheduler"
 	"github.com/rs/zerolog/log"
@@ -16,25 +17,19 @@ type RulesServiceServerParams struct {
 	AppConfig config.AppConfig
 }
 
-type QueueServerFxOut = interface{}
-
-func NewQueueServerFx(lc fx.Lifecycle, params RulesServiceServerParams) (QueueServerFxOut, error) {
-	server := NewRulesServerFromAppConfig(params.AppConfig)
-	var channel QueueServerFxOut
+func NewQueueServerFx(lc fx.Lifecycle, params RulesServiceServerParams) (server.Server[RulesServer], error) {
+	srv := NewRulesServerFromAppConfig(params.AppConfig)
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			log.Info().Msg("Starting RulesServer")
-			err := server.Start(ctx)
-			return err
+			return srv.Start(ctx)
 		},
-		OnStop: func(_ context.Context) error {
-			log.Printf("Stopping app..")
-			server.Stop()
-			return nil
+		OnStop: func(ctx context.Context) error {
+			return srv.Stop(ctx)
 		},
 	})
-	return channel, nil
+	return srv, nil
 }
 
 type Bah struct{}
@@ -51,7 +46,6 @@ func FxServerOpts(appConfig config.AppConfig) fx.Option {
 				metrics.NewCaseMetricsService,
 				queue.QueueServiceFactory(appConfig.RulesServiceConfig.QueueType),
 				scheduler.NewWorkScheduler,
-				NewRulesServer,
 				fx.Private,
 			),
 			fx.Provide(NewQueueServerFx),
@@ -62,6 +56,6 @@ func FxServerOpts(appConfig config.AppConfig) fx.Option {
 func NewRulesServiceCServer(appConfig config.AppConfig) *fx.App {
 	return fx.New(
 		FxServerOpts(appConfig),
-		fx.Invoke(func(c QueueServerFxOut) {}),
+		fx.Invoke(func(_ server.Server[RulesServer]) {}),
 	)
 }

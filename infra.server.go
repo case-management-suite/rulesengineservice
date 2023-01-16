@@ -7,23 +7,32 @@ import (
 	"github.com/case-management-suite/scheduler"
 	"github.com/rs/zerolog/log"
 
-	"github.com/case-management-suite/common/ctxutils"
 	"github.com/case-management-suite/common/metrics"
+	"github.com/case-management-suite/common/server"
 )
 
 type RulesServer struct {
 	Rules     RulesService
 	Metrics   metrics.MetricsService
 	Scheduler scheduler.WorkScheduler
+	server.ServerUtils
+}
+
+func (rs RulesServer) GetName() string {
+	return "rules_server"
+}
+
+func (rs RulesServer) GetServerConfig() *server.ServerConfig {
+	return &server.ServerConfig{
+		Type: server.ProcessServerType,
+	}
 }
 
 func (rs RulesServer) Start(ctx context.Context) error {
-	ctx = ctxutils.DecorateContext(ctx, ctxutils.ContextDecoration{Name: "RulesServer"})
-	log.Ctx(ctx).Debug().Str("service", "RulesServer").Msg("Starting rules server")
-
 	if err := rs.Scheduler.Start(ctx); err != nil {
 		return err
 	}
+	newCtx := context.Background()
 	return rs.Scheduler.ListenForCaseActions(func(caseAction models.CaseAction) error {
 		log.Ctx(ctx).Debug().Str("UUID", caseAction.CaseRecordID).Msg("Processing action...")
 		rec, err := rs.Rules.ExecuteAction(caseAction.CaseRecord, caseAction.Action)
@@ -35,9 +44,11 @@ func (rs RulesServer) Start(ctx context.Context) error {
 			log.Ctx(ctx).Warn().Err(err).Msg("Failed to notificate case update")
 		}
 		return nil
-	}, ctx)
+	}, newCtx)
 }
 
-func (rs RulesServer) Stop() {
-	rs.Scheduler.Stop()
+func (rs RulesServer) Stop(_ context.Context) error {
+	return rs.Scheduler.Stop()
 }
+
+var _ server.Serveable = RulesServer{}

@@ -23,11 +23,11 @@ func TestExecuteAction(t *testing.T) {
 		t.FailNow()
 	}
 
-	defer rserver.Stop()
+	defer rserver.Stop(ctx)
 
 	tchan := make(chan models.CaseRecord)
 
-	rserver.Scheduler.ListenForCaseUpdates(func(cr models.CaseRecord) error {
+	rserver.Server.Scheduler.ListenForCaseUpdates(func(cr models.CaseRecord) error {
 		tchan <- cr
 		return nil
 	}, ctx)
@@ -35,7 +35,7 @@ func TestExecuteAction(t *testing.T) {
 	log.Debug().Msg("Executing action...")
 
 	cr := models.CaseRecord{ID: models.NewCaseRecordUUID(), Status: "NEW_CASE"}
-	err := rserver.Scheduler.ExecuteCaseAction(cr, "START", ctx)
+	err := rserver.Server.Scheduler.ExecuteCaseAction(cr, "START", ctx)
 
 	if err != nil {
 		log.Error().Err(err).Msg("Failed execute action")
